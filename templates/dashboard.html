@@ -1,0 +1,385 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard | ExpenseTrack{% endblock %}
+
+{% block content %}
+
+<header class="topbar">
+    <div>
+        <p class="eyebrow">PERSONAL FINANCE</p>
+        <h1>Good to see you, {{ session["user_name"] }} 👋</h1>
+        <p class="muted">Here's your financial overview.</p>
+    </div>
+
+    <a class="btn primary" href="#add">
+        ＋ Add transaction
+    </a>
+</header>
+
+
+<!-- =========================
+     TOTAL SUMMARY
+========================= -->
+
+<section class="stats-grid">
+
+    <article class="stat-card">
+        <div class="stat-icon income">↗</div>
+
+        <div>
+            <span>Total income</span>
+            <strong>₹{{ "{:,.2f}".format(income) }}</strong>
+        </div>
+    </article>
+
+
+    <article class="stat-card">
+        <div class="stat-icon expense">↘</div>
+
+        <div>
+            <span>Total expenses</span>
+            <strong>₹{{ "{:,.2f}".format(expense) }}</strong>
+        </div>
+    </article>
+
+
+    <article class="stat-card">
+        <div class="stat-icon balance">₹</div>
+
+        <div>
+            <span>Current balance</span>
+            <strong>₹{{ "{:,.2f}".format(balance) }}</strong>
+        </div>
+    </article>
+
+</section>
+
+
+<!-- =========================
+     THIS MONTH
+========================= -->
+
+<section class="panel" style="margin-top: 24px;">
+
+    <div class="panel-head">
+        <div>
+            <h2>This Month</h2>
+            <p>Your income, expenses and balance for the current month.</p>
+        </div>
+    </div>
+
+
+    <div class="stats-grid">
+
+        <article class="stat-card">
+            <div class="stat-icon income">↗</div>
+
+            <div>
+                <span>Monthly income</span>
+                <strong>
+                    ₹{{ "{:,.2f}".format(monthly_income) }}
+                </strong>
+            </div>
+        </article>
+
+
+        <article class="stat-card">
+            <div class="stat-icon expense">↘</div>
+
+            <div>
+                <span>Monthly expenses</span>
+                <strong>
+                    ₹{{ "{:,.2f}".format(monthly_expense) }}
+                </strong>
+            </div>
+        </article>
+
+
+        <article class="stat-card">
+            <div class="stat-icon balance">₹</div>
+
+            <div>
+                <span>Monthly balance</span>
+                <strong>
+                    ₹{{ "{:,.2f}".format(monthly_balance) }}
+                </strong>
+            </div>
+        </article>
+
+    </div>
+
+</section>
+
+
+<!-- =========================
+     CHARTS
+========================= -->
+
+<section class="charts-grid">
+
+    <article class="panel">
+
+        <div class="panel-head">
+            <div>
+                <h2>Expense breakdown</h2>
+                <p>Where your money goes</p>
+            </div>
+        </div>
+
+        <div class="chart-box">
+            <canvas id="expenseChart"></canvas>
+        </div>
+
+    </article>
+
+
+    <article class="panel">
+
+        <div class="panel-head">
+            <div>
+                <h2>Monthly overview</h2>
+                <p>Income vs expenses</p>
+            </div>
+        </div>
+
+        <div class="chart-box">
+            <canvas id="monthlyChart"></canvas>
+        </div>
+
+    </article>
+
+</section>
+
+
+<!-- =========================
+     RECENT TRANSACTIONS
+========================= -->
+
+<section class="panel">
+
+    <div class="panel-head">
+
+        <div>
+            <h2>Recent transactions</h2>
+            <p>Your latest financial activity.</p>
+        </div>
+
+        <a class="btn ghost" href="{{ url_for('transactions') }}">
+            View all
+        </a>
+
+    </div>
+
+
+    <div class="table-wrap">
+
+        <table>
+
+            <thead>
+                <tr>
+                    <th>Transaction</th>
+                    <th>Category</th>
+                    <th>Type</th>
+                    <th>Date</th>
+                    <th>Amount</th>
+                </tr>
+            </thead>
+
+
+            <tbody>
+
+                {% for t in transactions %}
+
+                <tr>
+
+                    <td>
+                        <div class="tx-title">
+
+                            <span class="tx-dot {{ t.type }}"></span>
+
+                            <div>
+                                <b>{{ t.title }}</b>
+
+                                {% if t.note %}
+                                    <small>{{ t.note }}</small>
+                                {% endif %}
+                            </div>
+
+                        </div>
+                    </td>
+
+
+                    <td>
+                        <span class="tag">
+                            {{ t.category }}
+                        </span>
+                    </td>
+
+
+                    <td>
+                        <span class="status {{ t.type }}">
+                            {{ t.type|capitalize }}
+                        </span>
+                    </td>
+
+
+                    <td>
+                        {{ t.transaction_date.strftime('%d %b %Y') }}
+                    </td>
+
+
+                    <td class="{{ t.type }}-text">
+                        {{ '+' if t.type == 'income' else '-' }}₹{{ "{:,.2f}".format(t.amount) }}
+                    </td>
+
+                </tr>
+
+                {% else %}
+
+                <tr>
+                    <td colspan="5" class="empty">
+                        No transactions yet.
+                    </td>
+                </tr>
+
+                {% endfor %}
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+</section>
+
+
+<!-- =========================
+     ADD TRANSACTION
+========================= -->
+
+<section class="panel" id="add">
+
+    <div class="panel-head">
+
+        <div>
+            <h2>Add transaction</h2>
+            <p>Record your income or expense.</p>
+        </div>
+
+    </div>
+
+
+    <form
+        class="transaction-form"
+        action="{{ url_for('add_transaction') }}"
+        method="post"
+    >
+
+        <label>
+            Title
+
+            <input
+                type="text"
+                name="title"
+                placeholder="e.g. Groceries"
+                required
+            >
+        </label>
+
+
+        <label>
+            Amount
+
+            <input
+                type="number"
+                name="amount"
+                step="0.01"
+                min="0.01"
+                placeholder="0.00"
+                required
+            >
+        </label>
+
+
+        <label>
+            Type
+
+            <select name="type">
+
+                <option value="expense">
+                    Expense
+                </option>
+
+                <option value="income">
+                    Income
+                </option>
+
+            </select>
+
+        </label>
+
+
+        <label>
+            Category
+
+            <select name="category">
+
+                {% for c in categories %}
+
+                <option value="{{ c }}">
+                    {{ c }}
+                </option>
+
+                {% endfor %}
+
+            </select>
+
+        </label>
+
+
+        <label>
+            Date
+
+            <input
+                type="date"
+                name="transaction_date"
+                value="{{ today }}"
+                required
+            >
+        </label>
+
+
+        <label>
+            Note
+
+            <input
+                type="text"
+                name="note"
+                placeholder="Optional note"
+            >
+        </label>
+
+
+        <button
+            class="btn primary"
+            type="submit"
+        >
+            Add Transaction
+        </button>
+
+    </form>
+
+</section>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- Chart API URL -->
+<script>
+    window.EXPENSE_API = "{{ url_for('chart_data') }}";
+</script>
+
+<!-- Expense Tracker charts -->
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+
+{% endblock %}

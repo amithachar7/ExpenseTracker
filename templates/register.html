@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Register | ExpenseTrack{% endblock %}
+{% block content %}
+<div class="auth-shell">
+  <section class="auth-hero"><div class="auth-brand">₹ Expense<span>Track</span></div><h1>Build better<br><span>money habits.</span></h1><p>One clean dashboard for your income, expenses, categories and financial trends.</p><div class="feature-pills"><span>✓ Free</span><span>✓ Private</span><span>✓ Easy to use</span></div></section>
+  <section class="auth-card"><div class="auth-icon">+</div><h2>Create account</h2><p class="muted">Start tracking your finances today</p>
+    <form method="post">
+      <label>Full name<input type="text" name="name" placeholder="Your name" required></label>
+      <label>Email address<input type="email" name="email" placeholder="you@example.com" required></label>
+      <label>Password<input type="password" name="password" placeholder="At least 6 characters" minlength="6" required></label>
+      <label>Confirm password<input type="password" name="confirm_password" placeholder="Repeat password" required></label>
+      <button class="btn primary full">Create account →</button>
+    </form>
+    <p class="switch">Already have an account? <a href="{{ url_for('login') }}">Sign in</a></p>
+  </section>
+</div>
+{% endblock %}

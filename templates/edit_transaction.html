@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Transaction | ExpenseTrack{% endblock %}
+
+{% block content %}
+
+<header class="topbar">
+    <div>
+        <p class="eyebrow">PERSONAL FINANCE</p>
+        <h1>Edit Transaction</h1>
+        <p class="muted">Update your transaction details.</p>
+    </div>
+
+    <a class="btn" href="{{ url_for('transactions') }}">
+        ← Back
+    </a>
+</header>
+
+<section class="panel" style="max-width: 900px;">
+
+    <div class="panel-head">
+        <div>
+            <h2>Edit transaction</h2>
+            <p>Change the details and save your update.</p>
+        </div>
+    </div>
+
+    <form class="transaction-form"
+          action="{{ url_for('edit_transaction', transaction_id=transaction.id) }}"
+          method="post">
+
+        <label>
+            Title
+            <input
+                name="title"
+                value="{{ transaction.title }}"
+                required
+            >
+        </label>
+
+        <label>
+            Amount
+            <input
+                name="amount"
+                type="number"
+                step="0.01"
+                min="0.01"
+                value="{{ transaction.amount }}"
+                required
+            >
+        </label>
+
+        <label>
+            Type
+            <select name="type">
+                <option value="expense"
+                    {% if transaction.type == "expense" %}selected{% endif %}>
+                    Expense
+                </option>
+
+                <option value="income"
+                    {% if transaction.type == "income" %}selected{% endif %}>
+                    Income
+                </option>
+            </select>
+        </label>
+
+        <label>
+            Category
+            <select name="category">
+                {% for c in categories %}
+                <option value="{{ c }}"
+                    {% if transaction.category == c %}selected{% endif %}>
+                    {{ c }}
+                </option>
+                {% endfor %}
+            </select>
+        </label>
+
+        <label>
+            Date
+            <input
+                name="transaction_date"
+                type="date"
+                value="{{ transaction.transaction_date.isoformat() }}"
+                required
+            >
+        </label>
+
+        <label>
+            Note
+            <input
+                name="note"
+                value="{{ transaction.note or '' }}"
+                placeholder="Optional note"
+            >
+        </label>
+
+        <button class="btn primary" type="submit">
+            Save Changes
+        </button>
+
+    </form>
+
+</section>
+
+{% endblock %}
