@@ -4,9 +4,12 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 from datetime import datetime, date
 from sqlalchemy import func
-from flask_mail import Mail, Message
 from dotenv import load_dotenv
 import os
+import urllib.request
+import urllib.error
+import json
+
 
 # =========================
 # LOAD ENVIRONMENT VARIABLES
@@ -24,17 +27,22 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 # =========================
 # EMAIL CONFIGURATION
+# RESEND API
 # =========================
 
-app.config["MAIL_SERVER"] = "smtp.gmail.com"
-app.config["MAIL_PORT"] = 587
-app.config["MAIL_USE_TLS"] = True
+RESEND_API_KEY = os.getenv("RESEND_API_KEY")
 
-app.config["MAIL_USERNAME"] = os.getenv("MAIL_USERNAME")
-app.config["MAIL_PASSWORD"] = os.getenv("MAIL_PASSWORD")
-app.config["MAIL_DEFAULT_SENDER"] = os.getenv("MAIL_USERNAME")
+# Email address that receives the transaction report.
+# This is your Gmail address stored in Render.
+EMAIL_RECIPIENT = os.getenv("MAIL_USERNAME")
 
-mail = Mail(app)
+# Resend's default testing sender.
+# We are using HTTPS API instead of Gmail SMTP.
+RESEND_FROM_EMAIL = os.getenv(
+    "RESEND_FROM_EMAIL",
+    "onboarding@resend.dev"
+)
+
 
 db = SQLAlchemy(app)
 
@@ -744,6 +752,98 @@ def delete_transaction(
 
 
 # =========================
+# SEND EMAIL USING RESEND API
+# =========================
+
+def send_email_with_resend(
+    recipient,
+    subject,
+    body
+):
+
+    if not RESEND_API_KEY:
+
+        raise RuntimeError(
+            "RESEND_API_KEY is not configured."
+        )
+
+    if not recipient:
+
+        raise RuntimeError(
+            "Email recipient is not configured."
+        )
+
+    payload = {
+        "from": RESEND_FROM_EMAIL,
+        "to": [recipient],
+        "subject": subject,
+        "text": body
+    }
+
+    data = json.dumps(
+        payload
+    ).encode("utf-8")
+
+    req = urllib.request.Request(
+        "https://api.resend.com/emails",
+        data=data,
+        method="POST"
+    )
+
+    req.add_header(
+        "Authorization",
+        f"Bearer {RESEND_API_KEY}"
+    )
+
+    req.add_header(
+        "Content-Type",
+        "application/json"
+    )
+
+    try:
+
+        with urllib.request.urlopen(
+            req,
+            timeout=20
+        ) as response:
+
+            response_data = response.read().decode(
+                "utf-8"
+            )
+
+            if response.status not in (
+                200,
+                201
+            ):
+
+                raise RuntimeError(
+                    f"Resend returned HTTP {response.status}: "
+                    f"{response_data}"
+                )
+
+            return json.loads(
+                response_data
+            )
+
+    except urllib.error.HTTPError as e:
+
+        error_body = e.read().decode(
+            "utf-8",
+            errors="replace"
+        )
+
+        raise RuntimeError(
+            f"Resend API error {e.code}: {error_body}"
+        )
+
+    except urllib.error.URLError as e:
+
+        raise RuntimeError(
+            f"Unable to connect to Resend: {e.reason}"
+        )
+
+
+# =========================
 # EMAIL TRANSACTION RECORDS
 # =========================
 
@@ -842,14 +942,14 @@ def send_transactions_email():
         report_lines
     )
 
-    email_address = app.config[
-        "MAIL_USERNAME"
-    ]
+    # Use MAIL_USERNAME as the recipient.
+    # The value is stored securely in Render Environment Variables.
+    email_address = EMAIL_RECIPIENT
 
     if not email_address:
 
         flash(
-            "Email address is not configured. Check your .env file.",
+            "Email recipient is not configured in Render.",
             "error"
         )
 
@@ -859,26 +959,22 @@ def send_transactions_email():
 
     try:
 
-        message = Message(
+        send_email_with_resend(
+
+            recipient=email_address,
 
             subject=(
                 "Expense Tracker - "
                 "Transaction Records"
             ),
 
-            recipients=[
-                email_address
-            ],
-
             body=report
 
         )
 
-        mail.send(message)
-
         flash(
 
-            "Transaction records sent successfully to your configured Gmail address.",
+            "Transaction records sent successfully.",
 
             "success"
 
@@ -887,13 +983,13 @@ def send_transactions_email():
     except Exception as e:
 
         print(
-            "Email error:",
+            "Resend email error:",
             e
         )
 
         flash(
 
-            "Unable to send email. Please check your Gmail settings.",
+            "Unable to send email. Please check the Resend configuration.",
 
             "error"
 
@@ -1030,7 +1126,7 @@ def seed_demo():
     with app.app_context():
 
         # Create all database tables.
-        # This is required when deploying with Gunicorn/Render.
+        # Required for Render/Gunicorn.
         db.create_all()
 
         # Create demo account if it does not already exist.
@@ -1149,12 +1245,6 @@ def seed_demo():
 # =========================
 # INITIALIZE DATABASE
 # =========================
-#
-# IMPORTANT:
-# This runs when Gunicorn imports app.py.
-# Therefore Render will create the SQLite
-# tables before handling the first request.
-#
 
 seed_demo()
 
