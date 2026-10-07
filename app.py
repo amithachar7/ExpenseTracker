@@ -32,7 +32,6 @@ app.config["MAIL_USE_TLS"] = True
 
 app.config["MAIL_USERNAME"] = os.getenv("MAIL_USERNAME")
 app.config["MAIL_PASSWORD"] = os.getenv("MAIL_PASSWORD")
-
 app.config["MAIL_DEFAULT_SENDER"] = os.getenv("MAIL_USERNAME")
 
 mail = Mail(app)
@@ -843,7 +842,6 @@ def send_transactions_email():
         report_lines
     )
 
-    # Email destination comes from .env
     email_address = app.config[
         "MAIL_USERNAME"
     ]
@@ -1031,9 +1029,16 @@ def seed_demo():
 
     with app.app_context():
 
+        # Create all database tables.
+        # This is required when deploying with Gunicorn/Render.
         db.create_all()
 
-        if User.query.count() == 0:
+        # Create demo account if it does not already exist.
+        demo = User.query.filter_by(
+            email="demo@example.com"
+        ).first()
+
+        if demo is None:
 
             demo = User(
 
@@ -1041,8 +1046,7 @@ def seed_demo():
 
                 email="demo@example.com",
 
-                password_hash=
-                generate_password_hash(
+                password_hash=generate_password_hash(
                     "demo123"
                 )
 
@@ -1130,8 +1134,7 @@ def seed_demo():
 
                         category=cat,
 
-                        transaction_date=
-                        datetime.strptime(
+                        transaction_date=datetime.strptime(
                             dt,
                             "%Y-%m-%d"
                         ).date()
@@ -1144,12 +1147,23 @@ def seed_demo():
 
 
 # =========================
+# INITIALIZE DATABASE
+# =========================
+#
+# IMPORTANT:
+# This runs when Gunicorn imports app.py.
+# Therefore Render will create the SQLite
+# tables before handling the first request.
+#
+
+seed_demo()
+
+
+# =========================
 # RUN APPLICATION
 # =========================
 
 if __name__ == "__main__":
-
-    seed_demo()
 
     app.run(
         debug=True
