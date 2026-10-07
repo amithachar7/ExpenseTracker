@@ -1,5 +1,22 @@
 # Expense Tracker
 
+A full-stack expense tracking web application built with Flask, SQLite, HTML, CSS and JavaScript.
+
+## 🚀 Live Demo
+
+👉 [Open Expense Tracker Live Demo](YOUR_RENDER_URL)
+
+## ✨ Features
+
+- User registration and login
+- Add, edit and delete transactions
+- Income and expense tracking
+- Dashboard
+- Monthly summaries
+- Charts and analytics
+- Email transaction reports
+# Expense Tracker
+
 A complete personal expense tracker built with Flask, SQLite, HTML, CSS and JavaScript.
 
 ## Features
