@@ -6,9 +6,8 @@ from datetime import datetime, date
 from sqlalchemy import func
 from dotenv import load_dotenv
 import os
-import urllib.request
-import urllib.error
-import json
+import smtplib
+from email.message import EmailMessage
 
 
 # =========================
@@ -27,21 +26,16 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 # =========================
 # EMAIL CONFIGURATION
-# RESEND API
+# BREVO SMTP
 # =========================
 
-RESEND_API_KEY = os.getenv("RESEND_API_KEY")
+MAIL_USERNAME = os.getenv("MAIL_USERNAME")
+MAIL_PASSWORD = os.getenv("MAIL_PASSWORD")
 
-# Email address that receives the transaction report.
-# This is your Gmail address stored in Render.
-EMAIL_RECIPIENT = os.getenv("MAIL_USERNAME")
+EMAIL_RECIPIENT = MAIL_USERNAME
 
-# Resend's default testing sender.
-# We are using HTTPS API instead of Gmail SMTP.
-RESEND_FROM_EMAIL = os.getenv(
-    "RESEND_FROM_EMAIL",
-    "onboarding@resend.dev"
-)
+MAIL_SERVER = "smtp-relay.brevo.com"
+MAIL_PORT = 587
 
 
 db = SQLAlchemy(app)
@@ -752,19 +746,25 @@ def delete_transaction(
 
 
 # =========================
-# SEND EMAIL USING RESEND API
+# SEND EMAIL USING BREVO SMTP
 # =========================
 
-def send_email_with_resend(
+def send_email_with_brevo(
     recipient,
     subject,
     body
 ):
 
-    if not RESEND_API_KEY:
+    if not MAIL_USERNAME:
 
         raise RuntimeError(
-            "RESEND_API_KEY is not configured."
+            "MAIL_USERNAME is not configured."
+        )
+
+    if not MAIL_PASSWORD:
+
+        raise RuntimeError(
+            "MAIL_PASSWORD is not configured."
         )
 
     if not recipient:
@@ -773,73 +773,29 @@ def send_email_with_resend(
             "Email recipient is not configured."
         )
 
-    payload = {
-        "from": RESEND_FROM_EMAIL,
-        "to": [recipient],
-        "subject": subject,
-        "text": body
-    }
+    message = EmailMessage()
 
-    data = json.dumps(
-        payload
-    ).encode("utf-8")
+    message["From"] = MAIL_USERNAME
+    message["To"] = recipient
+    message["Subject"] = subject
 
-    req = urllib.request.Request(
-        "https://api.resend.com/emails",
-        data=data,
-        method="POST"
-    )
+    message.set_content(body)
 
-    req.add_header(
-        "Authorization",
-        f"Bearer {RESEND_API_KEY}"
-    )
+    with smtplib.SMTP(
+        MAIL_SERVER,
+        MAIL_PORT,
+        timeout=20
+    ) as server:
 
-    req.add_header(
-        "Content-Type",
-        "application/json"
-    )
+        server.starttls()
 
-    try:
-
-        with urllib.request.urlopen(
-            req,
-            timeout=20
-        ) as response:
-
-            response_data = response.read().decode(
-                "utf-8"
-            )
-
-            if response.status not in (
-                200,
-                201
-            ):
-
-                raise RuntimeError(
-                    f"Resend returned HTTP {response.status}: "
-                    f"{response_data}"
-                )
-
-            return json.loads(
-                response_data
-            )
-
-    except urllib.error.HTTPError as e:
-
-        error_body = e.read().decode(
-            "utf-8",
-            errors="replace"
+        server.login(
+            MAIL_USERNAME,
+            MAIL_PASSWORD
         )
 
-        raise RuntimeError(
-            f"Resend API error {e.code}: {error_body}"
-        )
-
-    except urllib.error.URLError as e:
-
-        raise RuntimeError(
-            f"Unable to connect to Resend: {e.reason}"
+        server.send_message(
+            message
         )
 
 
@@ -942,8 +898,6 @@ def send_transactions_email():
         report_lines
     )
 
-    # Use MAIL_USERNAME as the recipient.
-    # The value is stored securely in Render Environment Variables.
     email_address = EMAIL_RECIPIENT
 
     if not email_address:
@@ -959,7 +913,7 @@ def send_transactions_email():
 
     try:
 
-        send_email_with_resend(
+        send_email_with_brevo(
 
             recipient=email_address,
 
@@ -983,13 +937,13 @@ def send_transactions_email():
     except Exception as e:
 
         print(
-            "Resend email error:",
+            "Brevo email error:",
             e
         )
 
         flash(
 
-            "Unable to send email. Please check the Resend configuration.",
+            "Unable to send email. Please check the Brevo SMTP configuration.",
 
             "error"
 
@@ -1125,11 +1079,8 @@ def seed_demo():
 
     with app.app_context():
 
-        # Create all database tables.
-        # Required for Render/Gunicorn.
         db.create_all()
 
-        # Create demo account if it does not already exist.
         demo = User.query.filter_by(
             email="demo@example.com"
         ).first()
